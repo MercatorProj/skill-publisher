@@ -2,7 +2,7 @@
 name: skill-publisher
 description: Package, version, and prepare a standalone or series skill for release to its configured GitHub subrepo.
 metadata:
-  version: 0.3.0
+  version: 0.4.0
   license: MIT
   topics: [codex, skills, publishing, github-cli, release]
 ---
@@ -26,10 +26,9 @@ Do not use this skill to discover or install unrelated skills.
 6. Before any GitHub publication, inspect the target repository and ensure it has a project description, topics, README, LICENSE, and a release matching the skill version.
 7. Use `gh` as the preferred transport for repository creation, cloning, pushing, and release management.
 8. If the configured repository does not exist, create it with `gh repo create <owner>/<repo> --private --description "<project description>"`. Use public visibility only when the user explicitly requests it.
-9. Clone the repository, create a release branch, copy the skill folder into the configured target path, commit the exact files that belong to the skill, and push the branch.
-10. Open a pull request with `gh pr create --fill`. Do not push directly to the default branch unless the user explicitly asks for a direct publish.
-11. After the release is merged, publish a release named `v<version>` with concise release notes.
-12. Do not mutate target repositories automatically. State the exact target and branch, then require explicit confirmation before any external mutation.
+9. Clone the repository, or reuse the configured publish clone, switch to the default branch (`main`), pull the latest changes, copy the skill folder into the configured target path, commit the exact files that belong to the skill, and push directly to `main`.
+10. Publish a release named `v<version>` with concise release notes after the push.
+11. Do not mutate target repositories automatically. State the exact target, then require explicit confirmation before any external mutation.
 
 ## Failure handling
 

@@ -12,7 +12,7 @@ Managing skills in one place is convenient, but publishing them one by one to Gi
 - a clean package archive;
 - a named target repository;
 - complete GitHub metadata;
-- a reviewable branch and release.
+- a versioned GitHub release.
 
 It is meant for publishing your own skills. It does not discover or install unrelated skills.
 
@@ -72,18 +72,9 @@ The package output is a deterministic zip archive with a `MANIFEST.json` describ
 3. Run the completeness gate: `skillctl check --skill <skill-ref>`. Every reported issue is a release blocker.
 4. Package the skill. Packaging re-runs the gate and refuses incomplete skills.
 5. Check the target repository metadata.
-6. Create a release branch.
-7. Copy only the skill's files into the target repository.
-8. Commit, push, and open a pull request.
-9. After merge, create a GitHub release matching the version.
-
-The release branch is usually named:
-
-```text
-publish/<skill-id>-<version>
-```
-
-Direct pushes to the default branch are avoided unless the user explicitly asks for a direct publish.
+6. Copy only the skill's files into the target repository.
+7. Commit and push directly to the default branch (`main`).
+8. Create a GitHub release matching the version.
 
 ## Release metadata checklist
 
@@ -106,15 +97,14 @@ The completeness gate enforces the skill-folder side of this checklist automatic
 
 `skillctl package` refuses to build an archive when any of these checks fail, so an incomplete skill cannot reach the packaging step silently.
 
-The skill uses `gh` for repository creation, metadata updates, cloning, pushing, pull requests, and releases.
+The skill uses `gh` for repository creation, metadata updates, cloning, pushing, and releases.
 
 ## Safety model
 
-This skill does not silently mutate remote repositories. It states the target repository and branch first, then waits for explicit confirmation before:
+This skill does not silently mutate remote repositories. It states the target repository first, then waits for explicit confirmation before:
 
 - creating a repository;
-- pushing a branch;
-- merging a pull request;
+- pushing to the default branch (`main`);
 - changing visibility;
 - creating or editing a release.
 
