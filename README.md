@@ -1,31 +1,27 @@
 # skill-publisher
 
-Package, version, and publish Codex skills to GitHub. It is built for a small personal skill monorepo where some skills are standalone and others are grouped into series.
+**Version:** 0.5.0  
+**License:** MIT
 
-## Why it exists
+Validate, version, package, and safely publish owned Codex skills from a skill-manager repository to configured GitHub repositories. It supports standalone skills and skills grouped into series.
 
-Managing skills in one place is convenient, but publishing them one by one to GitHub is repetitive and easy to get wrong. This skill standardizes that process so each release has the same structure and the same release hygiene:
+## What's new in 0.5.0
 
-- a validated skill folder;
-- a completeness gate that blocks packaging until required files and metadata are present;
-- a semantic version bump;
-- a clean package archive;
-- a named target repository;
-- complete GitHub metadata;
-- a versioned GitHub release.
+- Separates audit/check, local packaging, and remote publishing modes.
+- Fixes the preflight/postflight ordering: an existing Release is checked for version collisions before publication and verified after publication.
+- Uses the target repository's actual default branch rather than assuming `main`.
+- Adds explicit release-plan confirmation and protections for repository visibility, branch changes, existing tags/releases, dirty worktrees, unrelated files, and concurrent remote changes.
+- Requires archive and manifest inspection, plus independent post-publication verification.
+- Improves partial-failure recovery and prevents blind repeat operations.
 
-It is meant for publishing your own skills. It does not discover or install unrelated skills.
-
-## Repository mapping
-
-`skill-publisher` supports two layouts:
+## Supported layouts
 
 | Layout | Source path | Target |
 |---|---|---|
 | Standalone | `skills/<skill-id>/` | `<github.owner>/<skill-id>` |
-| Series | `skills/<series>/<skill-id>/` | repository configured for `<series>` |
+| Series | `skills/<series>/<skill-id>/` | Repository and path configured for that series |
 
-Examples:
+Example:
 
 ```text
 skills/skill-publisher          -> MercatorProj/skill-publisher
@@ -33,139 +29,77 @@ skills/audit-anything           -> MercatorProj/audit-anything
 skills/research/paper-analyzer  -> repository configured for research
 ```
 
-The standalone mapping is intentional: a standalone skill should live in a repository with the same name, so the repository is easy to find and the skill can be published without configuring a separate target.
-
 ## Requirements
 
-- Python 3.10 or newer
+- Python 3.10 or newer, as required by the manager tooling
 - `git`
-- GitHub CLI (`gh`) with `repo`, `workflow`, and `read:org` scopes as needed
-- a configured `series.json` with `github.owner`
+- GitHub CLI (`gh`) authenticated for the required target operations
+- A valid `series.json` with `github.owner` and any required series destinations
+- The skill manager's `skillctl` command, or its documented Python module fallback
+
+Use only permissions needed for the specific target. Organization-specific scopes may be necessary for organization repositories; do not broaden access unnecessarily.
 
 ## Quick start
 
-From the skill manager repository:
+From the skill-manager repository:
 
 ```bash
 skillctl check --skill skill-publisher
 skillctl package --skill skill-publisher
 ```
 
-When the `skillctl` entry point is not installed, run the same check from the skill manager repository with:
+If the entry point is not installed and the manager repository supports this fallback:
 
 ```bash
 PYTHONPATH=src python -m skill_manager check --skill skill-publisher
+PYTHONPATH=src python -m skill_manager package --skill skill-publisher
 ```
 
 For a skill in a series:
 
 ```bash
+skillctl check --skill research/paper-analyzer
 skillctl package --skill research/paper-analyzer
 ```
 
-The package output is a deterministic zip archive with a `MANIFEST.json` describing the skill id, version, license, topics, and entrypoint.
+Exact commands and artifact paths are determined by the installed manager version. Inspect the command output; do not assume an artifact filename.
 
-## Publishing workflow
+## Recommended workflow
 
-1. Confirm whether the change is a patch, minor, or major release.
-2. Bump the version in the skill's `SKILL.md`.
-3. Run the completeness gate: `skillctl check --skill <skill-ref>`. Every reported issue is a release blocker.
-4. Package the skill. Packaging re-runs the gate and refuses incomplete skills.
-5. Check the target repository metadata.
-6. Copy only the skill's files into the target repository.
-7. Commit and push directly to the default branch (`main`).
-8. Create a GitHub release matching the version.
-
-## Release metadata checklist
-
-Before publishing to GitHub, this skill treats the following as required:
-
-| Item | Purpose |
-|---|---|
-| Description | Makes the repository understandable in search and preview contexts |
-| Topics | Helps discovery and grouping |
-| README | Explains purpose, installation, usage, and limits |
-| LICENSE | States reuse terms |
-| Release | Marks the published version and changes |
-
-The completeness gate enforces the skill-folder side of this checklist automatically. A skill passes only when:
-
-- `SKILL.md` has `name`, `description`, and a semantic `metadata.version`;
-- front matter declares `metadata.license` and a non-empty `metadata.topics` list;
-- `README.md` exists, has at least one heading, and is substantial enough to explain the skill;
-- a `LICENSE` file exists in the skill folder.
-
-`skillctl package` refuses to build an archive when any of these checks fail, so an incomplete skill cannot reach the packaging step silently.
-
-The skill uses `gh` for repository creation, metadata updates, cloning, pushing, and releases.
+1. Resolve the skill source and publishing target from actual configuration.
+2. Inspect the current version and the change scope; do not bump the version merely to rebuild an archive.
+3. Run `skillctl check` and fix every blocker.
+4. Run `skillctl package`; inspect the ZIP and `MANIFEST.json`, including for unintended files or secrets.
+5. Inspect the target repository and its actual default branch. Check for existing version tags and Releases.
+6. Present the exact release plan and obtain explicit confirmation before remote mutations.
+7. Stage only the skill's validated files and inspect the diff before committing.
+8. Create the versioned GitHub Release only after the target content is published; attach the validated package ZIP when included in the plan.
+9. Verify the remote commit, tag, Release, asset, and repository metadata.
 
 ## Safety model
 
-This skill does not silently mutate remote repositories. It states the target repository first, then waits for explicit confirmation before:
+The skill can prepare a local package without publishing it. Remote changes require a concrete plan and explicit confirmation. It must not force-push, rewrite existing release tags, discard user changes, change visibility without authorization, or copy the manager repository wholesale into a skill repository.
 
-- creating a repository;
-- pushing to the default branch (`main`);
-- changing visibility;
-- creating or editing a release.
+The skill's instructions do not themselves execute a publication. Results depend on the available tools, repository configuration, credentials, branch protections, and the actual command results. Checks not run must be reported as not verified.
 
-This keeps accidental publishes, visibility changes, and destructive updates unlikely.
+## Release metadata
 
-## Common cases
+**Before publishing:** repository description, topics, README, LICENSE, correct skill content, and any required configuration must be ready.
 
-### New standalone skill
+**After publishing:** verify the version tag, GitHub Release, release notes, and planned package asset. A matching Release is not a prerequisite for creating a first release of that version.
 
-Place it at:
+## Semantic versioning
 
-```text
-skills/my-skill/SKILL.md
-```
+- `PATCH`: compatible fixes and clarifications.
+- `MINOR`: additive behavior that preserves the established interface and intent.
+- `MAJOR`: breaking changes to workflow, interface, supported layout, or metadata contract.
 
-It will target:
+Existing tags and Releases are immutable by default. If the target version already exists with different content, publish a new version rather than overwriting history.
 
-```text
-<github.owner>/my-skill
-```
+## Scope and limits
 
-### New series
-
-Add it to `series.json`:
-
-```json
-{
-  "series": {
-    "research": {
-      "description": "Research and analysis skills",
-      "repo": "https://github.com/MercatorProj/research-skills.git",
-      "path": "skills"
-    }
-  }
-}
-```
-
-Then place skills under:
-
-```text
-skills/research/<skill-id>/
-```
-
-All skills in that series share the same repository.
-
-### Version bump
-
-Use semantic versioning:
-
-- patch: documentation or small fixes;
-- minor: additive behavior;
-- major: breaking workflow or interface change.
-
-## Troubleshooting
-
-- Missing `repo` for a series: configure it in `series.json`.
-- Missing `github.owner`: add it to `series.json`.
-- Duplicate skill id: use `<series>/<skill-id>` explicitly.
-- Failed validation: fix `SKILL.md` before packaging or publishing.
-- Completeness gate failures: read the reported issues from `skillctl check --skill <skill-ref>`, fix them in the skill folder, and run the check again before packaging.
+This skill targets personal or otherwise authorized skill repositories. It does not discover or install unrelated skills, bypass repository protection, or guarantee publication where the available credentials or tools lack permission.
 
 ## License
 
-MIT.
+MIT. See `LICENSE`.
