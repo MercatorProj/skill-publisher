@@ -1,0 +1,4 @@
+interface:
+  display_name: "Skill Publisher"
+  short_description: "Package and prepare skill releases"
+  default_prompt: "Use $skill-publisher to package a validated skill release."
